@@ -5,6 +5,31 @@
 #include <string>
 using namespace std;
 
+class Node
+{
+public:
+	Node(int id): _id(id)	{ }
+	~Node()	{ }
+
+	// access function
+	int getId()			{ return _id; }
+	Node* getParent()	{ return _parent; }
+	Node* getLeft()		{ return _left; }
+	Node* getRight()	{ return _right; }
+
+	// set function
+	void setId(int id)	{ _id = id; }
+	void setParent(Node* parent)	{ _parent = parent; }
+	void setLeft(Node* left)	{ _left = left; }
+	void setRight(Node* right)	{ _right = right; }
+
+private:
+	int _id;	// block ID
+	Node* _parent;
+	Node* _left;
+	Node* _right;
+};
+
 class Terminal
 {
 public:
@@ -50,12 +75,14 @@ public:
     const size_t getArea()  { return _h * _w; }
     static size_t getMaxX() { return _maxX; }
     static size_t getMaxY() { return _maxY; }
+	Node* getNode()	{return _node;}
 
     // set functions
     void setWidth(size_t w)         { _w = w; }
     void setHeight(size_t h)        { _h = h; }
     static void setMaxX(size_t x)   { _maxX = x; }
     static void setMaxY(size_t y)   { _maxY = y; }
+	void setNode(Node* node)		{ _node = node; }
 
 
 private:
@@ -63,6 +90,7 @@ private:
     size_t          _h;         // height of the block
     static size_t   _maxX;      // maximum x coordinate for all blocks
     static size_t   _maxY;      // maximum y coordinate for all blocks
+	Node*	_node;							//
 };
 
 
@@ -70,7 +98,7 @@ class Net
 {
 public:
     // constructor and destructor
-    Net()   { }
+    Net(int degree): _degree(degree)   { }
     ~Net()  { }
 
     // basic access methods
@@ -84,6 +112,32 @@ public:
 
 private:
     vector<Terminal*>   _termList;  // list of terminals the net is connected to
+	int _degree;					// net degree
+};
+
+class Segment
+{
+public:
+	Segment(int length, int height): _length(length), _height(height){ }
+	~Segment() { }
+
+	// access function
+	int getLength()	{ return _length; }
+	int getHeight()	{ return _height; }
+	Segment* getPre() { return _pre; }
+	Segment* getNext() { return _next; }
+
+	// set function
+	void setLength(int length)	{ _length = length; }
+	void setHeight(int height)	{ _height = height; }
+	void setPre(Segment* pre)	{ _pre = pre; }
+	void setNext(Segment* next)	{ _next = next; }
+	
+private:
+	int _length;
+	int _height;
+	Segment* _pre;
+	Segment* _next;
 };
 
 #endif  // MODULE_H
