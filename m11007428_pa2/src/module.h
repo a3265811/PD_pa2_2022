@@ -8,7 +8,7 @@ using namespace std;
 class Node
 {
 public:
-	Node(int id): _id(id)	{ }
+	Node(int id): _id(id), _pos(-1), _parent(NULL), _left(NULL), _right(NULL)	{ }
 	~Node()	{ }
 
 	// access function
@@ -25,6 +25,7 @@ public:
 
 private:
 	int _id;	// block ID
+	int _pos;	// position in node array
 	Node* _parent;
 	Node* _left;
 	Node* _right;
@@ -90,7 +91,7 @@ private:
     size_t          _h;         // height of the block
     static size_t   _maxX;      // maximum x coordinate for all blocks
     static size_t   _maxY;      // maximum y coordinate for all blocks
-	Node*	_node;							//
+	Node*	_node;				// block node in B*-tree
 };
 
 
