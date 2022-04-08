@@ -3,33 +3,13 @@
 
 #include <vector>
 #include <string>
+#include <climits>
 using namespace std;
 
-class Node
-{
-public:
-	Node(int id): _id(id), _pos(-1), _parent(NULL), _left(NULL), _right(NULL)	{ }
-	~Node()	{ }
-
-	// access function
-	int getId()			{ return _id; }
-	Node* getParent()	{ return _parent; }
-	Node* getLeft()		{ return _left; }
-	Node* getRight()	{ return _right; }
-
-	// set function
-	void setId(int id)	{ _id = id; }
-	void setParent(Node* parent)	{ _parent = parent; }
-	void setLeft(Node* left)	{ _left = left; }
-	void setRight(Node* right)	{ _right = right; }
-
-private:
-	int _id;	// block ID
-	int _pos;	// position in node array
-	Node* _parent;
-	Node* _left;
-	Node* _right;
-};
+class Terminal;
+class Block;
+class Net;
+class Node;
 
 class Terminal
 {
@@ -48,6 +28,10 @@ public:
 
     // set functions
     void setName(string& name) { _name = name; }
+	void setX1(size_t x1) { _x1 = x1; }
+	void setX2(size_t x2) { _x2 = x2; }
+	void setY1(size_t y1) { _y1 = y1; }
+	void setY2(size_t y2) { _y2 = y2; }
     void setPos(size_t x1, size_t y1, size_t x2, size_t y2) {
         _x1 = x1;   _y1 = y1;
         _x2 = x2;   _y2 = y2;
@@ -116,29 +100,66 @@ private:
 	int _degree;					// net degree
 };
 
+class Node
+{
+public:
+	Node(Block* block, int id): _block(block), _id(id), _pos(-1), _parent(NULL), _left(NULL), _right(NULL)	{ }
+	~Node()	{ }
+
+	// access function
+	Block* getBlock()	{ return _block; }
+	int getId()			{ return _id;}
+	int getPos()		{ return _pos; }
+	Node* getParent()	{ return _parent; }
+	Node* getLeft()		{ return _left; }
+	Node* getRight()	{ return _right; }
+
+	// set function
+	void setBlock(Block* block)		{ _block = block; }
+	void setId(int id)				{ _id = id; }
+	void setPos(int pos)			{ _pos = pos; }
+	void setParent(Node* parent)	{ _parent = parent; }
+	void setLeft(Node* left)		{ _left = left; }
+	void setRight(Node* right)		{ _right = right; }
+
+private:
+	int _id;
+	int _pos;		// position in node array
+	Block* _block;
+	Node* _parent;
+	Node* _left;
+	Node* _right;
+};
+
+/*
 class Segment
 {
 public:
-	Segment(int length, int height): _length(length), _height(height){ }
+	Segment(int length, int height, int x): _length(length), _height(height), _x(x) { }
 	~Segment() { }
 
 	// access function
 	int getLength()	{ return _length; }
 	int getHeight()	{ return _height; }
+	int getX()		{ return _x; }
 	Segment* getPre() { return _pre; }
 	Segment* getNext() { return _next; }
 
 	// set function
 	void setLength(int length)	{ _length = length; }
 	void setHeight(int height)	{ _height = height; }
+	void setX(int x)			{_x = x; }
 	void setPre(Segment* pre)	{ _pre = pre; }
 	void setNext(Segment* next)	{ _next = next; }
+	
 	
 private:
 	int _length;
 	int _height;
+	int _x;
 	Segment* _pre;
 	Segment* _next;
-};
+};*/
+
 
 #endif  // MODULE_H

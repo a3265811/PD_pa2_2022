@@ -1,6 +1,6 @@
 CC=g++
 LDFLAGS=-std=c++11 -O3 -lm -g
-SOURCES=src/floorplanner.cpp src/main.cpp
+SOURCES=src/floorplanner.cpp src/plot.cpp src/main.cpp
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=fp
 INCLUDES=src/module.h src/floorplanner.h
