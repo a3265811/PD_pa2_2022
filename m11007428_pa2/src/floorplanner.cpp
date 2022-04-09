@@ -63,37 +63,219 @@ void Floorplanner::parser(fstream& input_blk, fstream& input_net){
 
 void Floorplanner::floorplan(){
 	// transform map to array
+	srand(time(NULL));
 	vector<Block*> ori_blkArray;
 	vector<Block*> blkArray;
+	double Anorm = 0, Wnorm = 0;
+	double Best_cost = INT_MAX;
+	int roundCounter;
+	double alpha = _alpha;
+	double beta = 1 - alpha;
+	bool solve = false;
 	for(map<string,Block*>::iterator map_it = _blkMap.begin(); map_it != _blkMap.end(); map_it++){
 		ori_blkArray.push_back(map_it->second);
+		cout << map_it->first << " " << map_it->second->getWidth() << " " << map_it->second->getHeight() << endl;
 	}
-	for(int r = 0; r < 1; r++){
+	
+	for(int r = 0; r < 100; r++){
+		_root = NULL;
+		_nodeArray.clear();
+		_contour.clear();
+		_leafArray.clear();
+		clearCoor();
+		Block::setMaxX(0);
+		Block::setMaxY(0);
 		blkArray = ori_blkArray;
-		srand(time(NULL));
+		random_shuffle(blkArray.begin(), blkArray.end());
 		for(int i = 0; i < blkArray.size(); i++){
-			int rnum = rand() % blkArray.size();
-			Node* tempNode = new Node(blkArray[rnum],i);
+			Node* tempNode = new Node(blkArray[i],i);
 			insertNode(tempNode, 0);
-			blkArray.erase(blkArray.begin()+rnum);
-			i--;
 		}
-		pair<long,long> tempCost;
-		tempCost = calCost();
+		buildContour(_root);
+		pair<double,double> cost;
+		double nowCost = -1;
+		cost = calCost();
+		Anorm += cost.first;
+		Wnorm += cost.second;
+		nowCost = alpha * cost.first + beta * cost.second;
+		//cout << "round " << r << " A: " << cost.first << " W: " << cost.second <<" cost: " << nowCost << endl;
+		if(Best_cost > nowCost){
+			Best_cost = nowCost;
+			deepClone(_root, _best_root, NULL, -1);
+			copyBestBlock();
+			if(Block::getMaxX() <= _outlineX && Block::getMaxY() <= _outlineY)
+				solve = true;
+		}
 	}
+	Anorm /= 100;
+	Wnorm /= 100;
+	roundCounter = 100;
+/*	printTree(_best_root);
+	Block::setMaxX(0);
+	Block::setMaxY(0);
+	_contour.clear();
+	clearCoor();
+	buildContour(_best_root);
+	printContour();*/
+	cout << "Best_cost: " << Best_cost << endl;
+	cout << "Anorm: " << Anorm << " Wnorm: " << Wnorm << endl;
+	cout << "-------------Initial end-----------------" << endl;
+	
+	// SA
+	cout << "-------------Simulated Annealing start-----------------" << endl;
+	double T = 1000, T1 = T;
+	int rangeOP1 = 33, rangeOP2 = 66;
+	int counter = 0;
+	double avgUphill = 0;
+	double totalDeltaCost = 0;
+	int roundTimes = 10;
+	pair<double,double> last_pair;
+	double last_cost = INT_MAX;
+	// get best data
+	writeBackBlock();
+	_root = NULL;
+	deepClone(_best_root, _root, NULL, -1);
 	printTree(_root);
-	cout << "----------------------------------------" << endl;
-	deepClone(_root, _last_root, NULL, -1);
-	printTree(_last_root);
-//	cout << "_last_root: " << _last_root->getBlock()->getName() << " (" << _last_root->getBlock()->getX1() << "," << _last_root->getBlock()->getY1() << "," << _last_root->getBlock()->getX2() << "," << _last_root->getBlock()->getY2() << ") <" << _last_root->getBlock()->getWidth() << "," << _last_root->getBlock()->getHeight() << ">" << endl;
+	_contour.clear();
+	clearCoor();
+	Block::setMaxX(0);
+	Block::setMaxY(0);
 	buildContour(_root);
 	printContour();
-	//cout << "root: " << _root->getBlock()->getName() << " (" << _root->getBlock()->getX1() << "," << _root->getBlock()->getY1() << "," << _root->getBlock()->getX2() << "," << _root->getBlock()->getY2() << ") <" << _root->getBlock()->getWidth() << "," << _root->getBlock()->getHeight() << ">" << endl;
+	plot();
+//	cout << "maxX & maxY: " << Block::getMaxX() << " " << Block::getMaxY() << endl;
+	last_pair = calCost();
+//	cout << "last_cost: " << last_pair.first << " " << last_pair.second << endl;
+//	cout << "Anorm: " << Anorm << " Wnorm: " << Wnorm << endl;
+	last_cost = alpha * (last_pair.first / Anorm) + beta * (last_pair.second / Wnorm);
+//	cout << "last_cost: " << last_cost << endl;
+	deepClone(_root, _last_root, NULL, -1);
+	if(Block::getMaxX() <= _outlineX && Block::getMaxY() <= _outlineY)
+		solve = true;
+	while(1){
+		if(counter > 50 && solve){
+			break;
+		}
+		double curDeltaCost = 0;
+		bool isRotate= false;
+		for(int r = 0; r < roundTimes; r++){
+			//plot();
+			pair<double,double> new_pair;
+			double new_cost = 0;
+			Block* mvBlock;
+			// get new tree
+			int rnum = rand() % 100;
+			if(rnum < rangeOP1){
+				mvBlock = rotateBlock();
+				isRotate = true;
+			}
+			else if(rangeOP1 < rnum && rnum < rangeOP2){
+				moveBlock();
+				isRotate = false;
+			}
+			else{
+				swapBlock();
+				isRotate = false;
+			}
+			// get new tree data
+			_contour.clear();
+			clearCoor();
+			Block::setMaxX(0);
+			Block::setMaxY(0);
+			buildContour(_root);
+			new_pair = calCost();
+			new_cost = alpha * (new_pair.first / Anorm) + beta * (new_pair.second / Wnorm);
+			curDeltaCost += new_cost - last_cost;
+			if(roundCounter > 100000 && roundCounter % 100000 == 0)
+				plot();
+	//		cout << "new_cost: " << new_cost << " last_cost: " << last_cost << endl;
+			if(new_cost < last_cost){
+				if(Best_cost > new_cost - last_cost && Block::getMaxX() <= _outlineX && Block::getMaxY() <= _outlineY){
+					Best_cost = new_cost;
+					deepClone(_root, _best_root, NULL, -1);
+					copyBestBlock();
+					if(counter > 1000 && counter % 10000 == 0)
+						plot();
+				}
+				if(Block::getMaxX() <= _outlineX && Block::getMaxY() <= _outlineY)
+					solve = true;
+			}
+			else{
+				// check if uphill
+				double prob = exp(-(new_cost-last_cost)/T) * 100;
+				rnum = rand() % 100;
+			//	cout << "prob: " << prob << endl;
+				if(rnum < prob){
+					deepClone(_root, _last_root, NULL, -1);
+					cout << "rnum: " << rnum << " prob: " << prob << endl;
+			//		cout << "accept" << endl;
+				}
+				else{
+					if(isRotate){
+						int width = mvBlock->getWidth();
+						mvBlock->setWidth(mvBlock->getWidth(true));
+						mvBlock->setHeight(width);
+						isRotate = false;
+					}
+					// regression
+					_root = NULL;
+					deepClone(_last_root, _root, NULL, -1);
+					_contour.clear();
+					clearCoor();
+					Block::setMaxX(0);
+					Block::setMaxY(0);
+					buildContour(_root);
+				}
+				// sum uphill cost
+				avgUphill += new_cost - last_cost;
+			//	cout << "avgUphill: " << avgUphill << endl;
+			//	cout << "alpha: " << alpha << " beta: " << beta << endl;
+			//	cout << "new_cost: " << new_cost << " last_cost: " << last_cost << endl;
+			}
+			roundCounter++;
+		}
+		cout << "------------------------------------------------" << endl;
+		cout << "T round: " << counter << endl;
+		cout << "before T: " << T << endl;
+		if(counter == 0){
+			totalDeltaCost += avgUphill;
+			avgUphill /= double(roundTimes);
+			cout << "total avgUphill: " << avgUphill << endl;
+			T = avgUphill / abs(log(0.95));
+		}
+		else if(1 <= counter && counter <= 7){
+			totalDeltaCost += curDeltaCost;
+			cout << "curDeltaCost: " << curDeltaCost/roundTimes << endl;
+			T = T1 * (curDeltaCost / roundTimes) / counter / 100;
+		}
+		else{
+			totalDeltaCost += curDeltaCost;
+			cout << "curDeltaCost: " << curDeltaCost/roundTimes << endl;
+			T = T1 * (curDeltaCost / roundTimes) / counter;
+		}
+		counter++;
+		cout << "after T: " << T << endl;
+	}
+	writeBackBlock();
+	_root = NULL;
+	deepClone(_best_root, _root, NULL, -1);
+	_contour.clear();
+	clearCoor();
+	Block::setMaxX(0);
+	Block::setMaxY(0);
+	buildContour(_root);
+	plot();
+
+
+	
+//	cout << "_last_root: " << _last_root->getBlock()->getName() << " (" << _last_root->getBlock()->getX1() << "," << _last_root->getBlock()->getY1() << "," << _last_root->getBlock()->getX2() << "," << _last_root->getBlock()->getY2() << ") <" << _last_root->getBlock()->getWidth() << "," << _last_root->getBlock()->getHeight() << ">" << endl;
+//	cout << "root: " << _root->getBlock()->getName() << " (" << _root->getBlock()->getX1() << "," << _root->getBlock()->getY1() << "," << _root->getBlock()->getX2() << "," << _root->getBlock()->getY2() << ") <" << _root->getBlock()->getWidth() << "," << _root->getBlock()->getHeight() << ">" << endl;
+//	cout << "----------------------------------------" << endl;
+//	cout << "root: " << _root->getBlock()->getName() << " (" << _root->getBlock()->getX1() << "," << _root->getBlock()->getY1() << "," << _root->getBlock()->getX2() << "," << _root->getBlock()->getY2() << ") <" << _root->getBlock()->getWidth() << "," << _root->getBlock()->getHeight() << ">" << endl;
 	/*string b1 = "bk2";
 	string b2 = "bk14b";
 	cout << "bk2: " << _blkMap[b1]->getName() << " (" << _blkMap[b1]->getX1() << "," << _blkMap[b1]->getY1() << "," << _blkMap[b1]->getX2() << "," << _blkMap[b1]->getY2() << ")" << endl;
 	cout << "bk14b: " << _blkMap[b2]->getName() << " (" << _blkMap[b2]->getX1() << "," << _blkMap[b2]->getY1() << "," << _blkMap[b2]->getX2() << "," << _blkMap[b2]->getY2() << ")" << endl;*/
-	plot();
 }
 
 void Floorplanner::insertNode(Node* mvNode, int mode){
@@ -140,12 +322,10 @@ void Floorplanner::insertNode(Node* mvNode, int mode){
 		}
 	}
 	else if(mode == 1){ // jump insert
-		srand(time(NULL));
 		int randPos = rand() % _nodeArray.size();
-		cout << "randPos: " << randPos << endl;
-		cout << "size: " << _nodeArray.size() << endl;
 		Node* oriNode = _nodeArray[randPos];
 		Node* parNode = oriNode->getParent();
+		//cout << "randNode: " << oriNode->getBlock()->getName() << endl;
 		bool dir = false;	// false for left child, true for right child
 		if(parNode != NULL){
 			if(parNode->getLeft() == oriNode)
@@ -162,7 +342,7 @@ void Floorplanner::insertNode(Node* mvNode, int mode){
 			mvNode->setLeft(oriNode);
 		else
 			mvNode->setRight(oriNode);
-		// insert new node to leaf node
+		// insert new node to leaf node and node array
 		bool isInArray = false;
 		for(int i = 0; i < _leafArray.size(); i++){
 			if(_leafArray[i] == mvNode)
@@ -170,6 +350,7 @@ void Floorplanner::insertNode(Node* mvNode, int mode){
 		}
 		if(!isInArray)
 			_leafArray.push_back(mvNode);
+		_nodeArray.push_back(mvNode);
 	}
 	else
 		cout << "insert mode error: " << mode << endl;
@@ -187,7 +368,6 @@ void Floorplanner::deleteNode(Node* mvNode){
 		// 2: mvNode is leaf node
 		int mode = -1; 
 		if(leftNode != NULL && rightNode != NULL){
-			srand(time(NULL));
 			if((rand() % 2) == 0){
 				swapNode = leftNode;
 				mode = 0;
@@ -251,22 +431,118 @@ void Floorplanner::deleteNode(Node* mvNode){
 	else{ // root deletion
 		_root = NULL;
 	}
+
+	// clear pointer
+	mvNode->setParent(NULL);
+	mvNode->setLeft(NULL);
+	mvNode->setRight(NULL);
+
+	// remove from node array
+	for(int i = 0; i < _nodeArray.size(); i++){
+		if(_nodeArray[i] == mvNode){
+			_nodeArray.erase(_nodeArray.begin()+i);
+			break;
+		}
+	}
 }
 
-void Floorplanner::printTree(Node* root){
-	if(!root) return;
-	cout << "root name: " << root->getBlock()->getName();
-	if(root->getParent())
-		cout << " pre: " << root->getParent()->getBlock()->getName();
-	if(root->getLeft())
-		cout << " left: " << root->getLeft()->getBlock()->getName();
-	if(root->getRight())
-		cout << " right: " << root->getRight()->getBlock()->getName();
-	cout << " root address: " << root;
-	cout << endl;
-	printTree(root->getLeft());
-	printTree(root->getRight());
+Block* Floorplanner::rotateBlock(){
+	int rnum = rand() % _nodeArray.size();
+	Node* mvNode = _nodeArray[rnum];
+	Block* mvBlock = mvNode->getBlock();
+	int newWidth = mvBlock->getWidth(true);
+	int newHeight = mvBlock->getHeight(true);
+	//cout << "mvBlock: " << mvBlock->getName() << " <" << mvBlock->getWidth() << "," << mvBlock->getHeight() << ">" << endl;
+	mvBlock->setWidth(newWidth);
+	mvBlock->setHeight(newHeight);
+	return mvBlock;
+	//cout << "mvBlock: " << mvBlock->getName() << " <" << mvBlock->getWidth() << "," << mvBlock->getHeight() << ">" << endl;
 }
+
+void Floorplanner::moveBlock(){
+	int rnum = rand() % _nodeArray.size();
+	Node* mvNode = _nodeArray[rnum];
+	Block* mvBlock = mvNode->getBlock();
+	deleteNode(mvNode);
+	insertNode(mvNode, 1);
+	//cout << "mvBlock: " << mvBlock->getName() << " pointer: " << mvNode->getParent() << " " << mvNode->getLeft() << " " << mvNode->getRight() << endl;
+}
+
+void Floorplanner::swapBlock(){
+	bool check = true;
+	Node* mvNode1;
+	Node* mvNode2;
+	// choose two block and check relation between two node
+	while(check){
+		int rnum1 = rand() % _nodeArray.size();
+		mvNode1 = _nodeArray[rnum1];
+		_nodeArray.erase(_nodeArray.begin() + rnum1);
+		int rnum2 = rand() % _nodeArray.size();
+		mvNode2 = _nodeArray[rnum2];
+		_nodeArray.erase(_nodeArray.begin() + rnum2);
+		check = checkNode(mvNode1, mvNode2);
+		if(check){
+			_nodeArray.push_back(mvNode1);
+			_nodeArray.push_back(mvNode2);
+		}
+	}
+	/*printNode(mvNode1);
+	printNode(mvNode2);
+	cout << "-------------------------------------" << endl;*/
+	//cout << "swap two node: " << mvNode1->getBlock()->getName() << "," << mvNode2->getBlock()->getName() << endl;
+	Node* n1PNode = mvNode1->getParent();
+	Node* n1LNode = mvNode1->getLeft();
+	Node* n1RNode = mvNode1->getRight();
+	Node* n2PNode = mvNode2->getParent();
+	Node* n2LNode = mvNode2->getLeft();
+	Node* n2RNode = mvNode2->getRight();
+	mvNode1->setParent(n2PNode);
+	if(n2PNode != NULL){
+		if(n2PNode->getLeft() == mvNode2)
+			n2PNode->setLeft(mvNode1);
+		else if(n2PNode->getRight() == mvNode2)
+			n2PNode->setRight(mvNode1);
+		else
+			cout << "omg who are u!!" << endl;
+	}
+	mvNode1->setLeft(n2LNode);
+	if(n2LNode != NULL)
+		n2LNode->setParent(mvNode1);
+	mvNode1->setRight(n2RNode);
+	if(n2RNode != NULL)
+		n2RNode->setParent(mvNode1);
+	mvNode2->setParent(n1PNode);
+	if(n1PNode != NULL){
+		if(n1PNode->getLeft() == mvNode1)
+			n1PNode->setLeft(mvNode2);
+		else if(n1PNode->getRight() == mvNode1)
+			n1PNode->setRight(mvNode2);
+		else
+			cout << "omg who are u!!" << endl;
+	}
+	mvNode2->setLeft(n1LNode);
+	if(n1LNode != NULL)
+		n1LNode->setParent(mvNode2);
+	mvNode2->setRight(n1RNode);
+	if(n1RNode != NULL)
+		n1RNode->setParent(mvNode2);
+	_nodeArray.push_back(mvNode1);
+	_nodeArray.push_back(mvNode2);
+	/*printNode(mvNode1);
+	printNode(mvNode2);
+	cout << "-------------------------------------" << endl;*/
+}
+
+bool Floorplanner::checkNode(Node* node1, Node* node2){
+	bool check = false;
+	if(node1->getParent() == node2)
+		check = true;
+	else if(node2->getParent() == node1)
+		check = true;
+	return check;
+}
+
+
 
 void Floorplanner::buildContour(Node* root){
 	if(!root) return;
@@ -301,8 +577,8 @@ void Floorplanner::insertContour(Block* mvBlock){
 	int counter = 0;
 	// cout << "x1: " << x1 << " x2: " << x2 << endl;
 	bool debug = false;
-	if(mvBlock->getName() == "bk2")
-		debug = true;
+	//if(mvBlock->getName() == "bk2")
+	//	debug = true;
 	if(debug){
 		printContour();
 		cout << "mvBlock: " << mvBlock->getName() << endl;
@@ -394,18 +670,11 @@ void Floorplanner::insertContour(Block* mvBlock){
 		Block::setMaxY(mvBlock->getY2());
 }
 
-void Floorplanner::printContour(){
-	for(list<pair<int,int>>::iterator it = _contour.begin(); it != _contour.end(); it++){
-		cout << "<" << it->first << "," << it->second << "> ";
-	}
-	cout << endl;
-}
-
-pair<long,long> Floorplanner::calCost(){
-	long area = long(Block::getMaxX()) * long(Block::getMaxY());
+pair<double,double> Floorplanner::calCost(){
+	double area = double(Block::getMaxX()) * double(Block::getMaxY());
 	/*cout << "maxX: " << Block::getMaxX() << " maxY: " << Block::getMaxY() << endl;
 	cout << "area: " << area << endl;*/
-	long HPWL = 0;
+	double HPWL = 0;
 	for(int i = 0; i < _netArray.size(); i++){
 		vector<Terminal*> termList = _netArray[i]->getTermList();
 		int minX = INT_MAX;
@@ -429,8 +698,9 @@ pair<long,long> Floorplanner::calCost(){
 		}
 		HPWL += maxX - minX + maxY - minY;
 	}
-//	cout << "HPWL: " << HPWL << endl;
-	return pair<long,long>(area,HPWL);
+	_R_star = Block::getMaxY() / Block::getMaxX();
+	//cout << "HPWL: " << HPWL << endl;
+	return pair<double,double>(area,HPWL);
 }
 
 void Floorplanner::deepClone(Node* old_root, Node*& new_root, Node* new_parent, int mode){
@@ -449,4 +719,56 @@ void Floorplanner::deepClone(Node* old_root, Node*& new_root, Node* new_parent, 
 		deepClone(old_root->getLeft(), new_left, new_root, 0);
 	if(old_root->getRight() != NULL)
 		deepClone(old_root->getRight(),new_right, new_root, 1);
+}
+
+void Floorplanner::copyBestBlock(){
+	_bestBlk.clear();
+	for(map<string,Block*>::iterator map_it = _blkMap.begin(); map_it != _blkMap.end(); map_it++){
+		string str = map_it->second->getName();
+		_bestBlk.push_back(new Block(str, map_it->second->getWidth(), map_it->second->getHeight()));
+	}
+}
+
+void Floorplanner::writeBackBlock(){
+	for(int i = 0; i < _bestBlk.size(); i++){
+		_blkMap[_bestBlk[i]->getName()]->setWidth(_bestBlk[i]->getWidth());
+		_blkMap[_bestBlk[i]->getName()]->setHeight(_bestBlk[i]->getHeight());
+	}
+}
+
+void Floorplanner::clearCoor(){
+	for(map<string,Block*>::iterator map_it = _blkMap.begin(); map_it != _blkMap.end(); map_it++){
+		map_it->second->setPos(0,0,0,0);
+	}
+}
+
+void Floorplanner::printNode(Node* mvNode){
+	Node* parent = mvNode->getParent();
+	Node* left = mvNode->getLeft();
+	Node* right = mvNode->getRight();
+	cout << "node name: " << mvNode->getBlock()->getName();
+	if(parent)
+		cout << " par: " << parent->getBlock()->getName();
+	if(left)
+		cout << " left: " << left->getBlock()->getName();
+	if(right)
+		cout << " right: " << right->getBlock()->getName();
+	cout << endl;
+
+}
+
+void Floorplanner::printTree(Node* root){
+	if(!root) return;
+	printNode(root);
+	//cout << " root address: " << root;
+	//cout << endl;
+	printTree(root->getLeft());
+	printTree(root->getRight());
+}
+
+void Floorplanner::printContour(){
+	for(list<pair<int,int>>::iterator it = _contour.begin(); it != _contour.end(); it++){
+		cout << "<" << it->first << "," << it->second << "> ";
+	}
+	cout << endl;
 }

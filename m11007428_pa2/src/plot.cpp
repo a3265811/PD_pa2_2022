@@ -3,8 +3,9 @@
 
 void Floorplanner::plot(){
 /////////////info. to show for gnu/////////////
-    int boundWidth = 2*_outlineX;// user-define value (boundary info)
-    int boundHeight = 2*_outlineY;// same above
+	int max = Block::getMaxX() > Block::getMaxY() ? Block::getMaxX() : Block::getMaxY();
+    int boundWidth = 1.2 * max;// user-define value (boundary info)
+    int boundHeight = 1.2 * max;// same above
  /////////////////////////////////////////////
  //gnuplot preset
 	fstream outgraph("output.gp", ios::out);
@@ -29,6 +30,20 @@ void Floorplanner::plot(){
 				 << "set label " << "\"" << NodeName << "\"" << " at " << midX << "," << midY << " center\n";
 		index++;  
 	}
+
+	int color = 1;
+	int start = 0;
+	for(auto &n : _contour) {
+	  int x0 = start;
+	  int y0 = n.second;
+	  int x1 = x0 + n.first;
+	  int y1 = y0;
+	  outgraph << "set arrow from " << x0 << "," << y0 << " to " ;
+	  outgraph << x1 << "," << y1 << " nohead lt " << color << " lw 3\n";
+	  index++;
+	  color++;
+	  start += n.first;
+	}
  // write script to output.gp and execute by system call
 	outgraph << "set object " << index << " rect from " 
 		  		 << "0" << "," << "0" << " to " << boundWidth << "," << boundHeight << " fs empty border 3 \n";
@@ -39,6 +54,7 @@ void Floorplanner::plot(){
 	outgraph << "set terminal png\n";
 	outgraph << "set output \"graph.png\"\n";
 	outgraph << "plot [0:" << boundWidth << "][0:" << boundHeight << "]\'line\' w l lt 2 lw 1\n";
+	outgraph << "set size square\n";
 	outgraph << "set terminal x11 persist\n";
 	outgraph << "replot\n";
 	outgraph << "exit";

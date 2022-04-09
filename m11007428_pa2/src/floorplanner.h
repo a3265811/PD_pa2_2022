@@ -7,29 +7,38 @@
 #include <map>
 #include <set>
 #include <list>
+#include <algorithm>
+#include <math.h>
 
 using namespace std;
 
 class Floorplanner
 {
 public:
-	Floorplanner(fstream& input_blk, fstream& input_net){
+	Floorplanner(double alpha, fstream& input_blk, fstream& input_net){
 		parser(input_blk, input_net);
 		_root = NULL;
+		_alpha = alpha;
+		_R_star = _outlineY / _outlineX;
 	}
 	~Floorplanner() { }
 	void parser(fstream& input_blk, fstream& input_net);
 	void floorplan();
-	pair<long,long> calCost();
+	pair<double,double> calCost();
 	void deepClone(Node* old_root, Node*& new_root, Node* new_parent, int mode);
+	void copyBestBlock();
+	void writeBackBlock();
+	void clearCoor();
 
 	// B*-tree function
-	void rotateBlock();
+	Block* rotateBlock();
 	void moveBlock();
 	void swapBlock();
 	void insertNode(Node* mvNode, int mode);
 	void deleteNode(Node* mvNode);
+	void printNode(Node* mvNode);
 	void printTree(Node* root);
+	bool checkNode(Node* node1, Node* node2);
 
 	// Contour line function
 	void insertContour(Block* mvBlock);
@@ -40,14 +49,18 @@ public:
 	void plot();
 
 private:
+	double _alpha;
 	int _outlineX;
 	int _outlineY;
 	int _termNum;
 	int _blkNum;
 	int _netNum;
+	double _R_star;
+	double _R;
 	map<string, Terminal*> _termMap;
 	map<string, Block*> _blkMap;
 	vector<Net*> _netArray;
+	vector<Block*> _bestBlk;
 	Node* _root;
 	Node* _last_root;
 	Node* _best_root;
