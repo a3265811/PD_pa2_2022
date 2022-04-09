@@ -39,6 +39,7 @@ public:
 	void printNode(Node* mvNode);
 	void printTree(Node* root);
 	bool checkNode(Node* node1, Node* node2);
+	void best_init();
 
 	// Contour line function
 	void insertContour(Block* mvBlock);
