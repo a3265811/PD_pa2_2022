@@ -29,6 +29,8 @@ public:
 	void copyBestBlock();
 	void writeBackBlock();
 	void clearCoor();
+	void setStart(clock_t time) { _start = time; }
+	void setEnd(clock_t time) { _end = time; }
 
 	// B*-tree function
 	Block* rotateBlock();
@@ -40,13 +42,16 @@ public:
 	void printTree(Node* root);
 	bool checkNode(Node* node1, Node* node2);
 	void best_init();
+	void findOuter();
 
 	// Contour line function
 	void insertContour(Block* mvBlock);
 	void printContour();
 	void buildContour(Node* node);
+	int findHeight(int x1, int x2);
 
 	// graph
+	void printResult(fstream& out);
 	void plot();
 
 private:
@@ -68,7 +73,11 @@ private:
 	vector<Node*> _nodeArray; // all nodes in B*-tree
 	vector<Node*> _leafArray; // leaf nodes in B*-tree
 	list<pair<int,int>> _contour;
-	list<pair<int,int>> _bast_contour;
+	pair<double,double> _bestPair;
+	double _Anorm;
+	double _Wnorm;
+	clock_t _start;
+	clock_t _end;
 
 };
 

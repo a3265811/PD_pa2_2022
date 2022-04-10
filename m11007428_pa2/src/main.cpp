@@ -37,8 +37,11 @@ int main(int argc, char** argv)
     }
 
     Floorplanner* fp = new Floorplanner(stod(argv[1]), input_blk, input_net);
+	fp->setStart(clock());
 	fp->best_init();
     fp->floorplan();
+	fp->setEnd(clock());
+	fp->printResult(output);
 
     return 0;
 }

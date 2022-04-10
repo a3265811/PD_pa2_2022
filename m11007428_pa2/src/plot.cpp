@@ -3,9 +3,8 @@
 
 void Floorplanner::plot(){
 /////////////info. to show for gnu/////////////
-	int max = Block::getMaxX() > Block::getMaxY() ? Block::getMaxX() : Block::getMaxY();
-    int boundWidth = 1.2 * max;// user-define value (boundary info)
-    int boundHeight = 1.2 * max;// same above
+    int boundWidth = 1.2 * _outlineX;// user-define value (boundary info)
+    int boundHeight = 1.2 * _outlineY;// same above
  /////////////////////////////////////////////
  //gnuplot preset
 	fstream outgraph("output.gp", ios::out);
